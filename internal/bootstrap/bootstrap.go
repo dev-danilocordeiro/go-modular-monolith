@@ -8,21 +8,31 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/dev-danilocordeiro/go-authkit"
+	"github.com/dev-danilocordeiro/go-authkit/fiberauth"
+
 	"github.com/dev-danilocordeiro/go-modular-monolith/internal/modules/orders"
 	"github.com/dev-danilocordeiro/go-modular-monolith/internal/modules/users"
 	"github.com/dev-danilocordeiro/go-modular-monolith/internal/platform/httpx"
 )
 
-// NewApp monta a aplicação. db == nil usa repositórios em memória.
-func NewApp(log *slog.Logger, db *pgxpool.Pool, problemTypeBase string) *fiber.App {
-	app := httpx.NewApp(log, problemTypeBase)
+type Deps struct {
+	Log             *slog.Logger
+	DB              *pgxpool.Pool    // nil => repositórios em memória
+	Verifier        authkit.Verifier // valida os tokens (Keycloak em produção, authtest nos testes)
+	ProblemTypeBase string
+}
 
+func NewApp(d Deps) *fiber.App {
+	app := httpx.NewApp(d.Log, d.ProblemTypeBase)
+
+	// Rotas públicas ficam ANTES do middleware de autenticação.
 	app.Get("/health", func(c fiber.Ctx) error { return c.SendString("ok") })
 
-	usersMod := users.New(users.Deps{DB: db})
-	ordersMod := orders.New(orders.Deps{DB: db, Users: usersMod.API()})
+	usersMod := users.New(users.Deps{DB: d.DB})
+	ordersMod := orders.New(orders.Deps{DB: d.DB, Users: usersMod.API()})
 
-	v1 := app.Group("/v1")
+	v1 := app.Group("/v1", fiberauth.New(d.Verifier))
 	usersMod.RegisterRoutes(v1)
 	ordersMod.RegisterRoutes(v1)
 

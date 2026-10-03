@@ -2,6 +2,7 @@
 package domain
 
 import (
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,16 +21,16 @@ var (
 
 type Order struct {
 	ID         uuid.UUID
-	UserID     uuid.UUID
-	TotalCents int64 // dinheiro em centavos (inteiro), nunca float
+	UserID     string // "sub" do dono no Keycloak
+	TotalCents int64  // dinheiro em centavos (inteiro), nunca float
 	CreatedAt  time.Time
 }
 
 func NewOrder(rawUserID string, totalCents int64, now time.Time) (Order, error) {
 	verr := ErrInvalid
-	userID, err := uuid.Parse(rawUserID)
-	if err != nil {
-		verr = verr.WithField("user_id", "deve ser um UUID")
+	userID := strings.TrimSpace(rawUserID)
+	if userID == "" {
+		verr = verr.WithField("user_id", "obrigatório")
 	}
 	if totalCents <= 0 {
 		verr = verr.WithField("total_cents", "deve ser maior que zero")

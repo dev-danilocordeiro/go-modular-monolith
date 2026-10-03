@@ -21,16 +21,19 @@ type User struct {
 
 // API é o contrato que outros módulos usam.
 //
-// Os erros devolvidos são os MESMOS *apperr.Error que a rota REST devolve
-// (ex.: GetUser com ID inexistente -> ErrNotFound, que no HTTP vira 404 com
-// code "users.not_found"). Compare com errors.Is(err, users.ErrNotFound).
+// Os erros devolvidos são os MESMOS que a rota REST devolve (ex.: GetUser com
+// ID inexistente -> ErrNotFound, que no HTTP vira 404 com code
+// "users.not_found"). Compare com errors.Is(err, users.ErrNotFound).
+//
+// A autorização também é a mesma: o principal viaja no ctx, e as políticas
+// de users são aplicadas como se a chamada viesse pelo HTTP. Se o chamador
+// não puder ler o usuário, recebe authkit.ErrForbidden.
 type API interface {
 	GetUser(ctx context.Context, id string) (User, error)
 }
 
 // Reexporta os erros do domínio para quem está fora do módulo.
 var (
-	ErrNotFound   = domain.ErrNotFound
-	ErrEmailTaken = domain.ErrEmailTaken
-	ErrInvalid    = domain.ErrInvalid
+	ErrNotFound = domain.ErrNotFound
+	ErrInvalid  = domain.ErrInvalid
 )

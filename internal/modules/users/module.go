@@ -48,5 +48,5 @@ func (a api) GetUser(ctx context.Context, id string) (User, error) {
 	if err != nil {
 		return User{}, err
 	}
-	return User{ID: u.ID.String(), Name: u.Name, Email: u.Email, CreatedAt: u.CreatedAt}, nil
+	return User{ID: u.ID, Name: u.Name, Email: u.Email, CreatedAt: u.CreatedAt}, nil
 }

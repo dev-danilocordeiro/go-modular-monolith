@@ -1,13 +1,13 @@
 // Package domain contém as regras de negócio de usuários. Não conhece HTTP,
 // SQL nem Fiber, só Go puro.
+//
+// Identidade (senha, MFA, recuperação de conta) é do Keycloak. Este módulo
+// guarda só o PERFIL local do usuário, identificado pelo "sub" do token.
 package domain
 
 import (
-	"net/mail"
 	"strings"
 	"time"
-
-	"github.com/google/uuid"
 
 	"github.com/dev-danilocordeiro/go-modular-monolith/internal/platform/apperr"
 )
@@ -15,45 +15,40 @@ import (
 // Erros do módulo. São a "linguagem de erro" de users: o handler REST, o
 // módulo orders e os testes comparam contra estas variáveis com errors.Is.
 var (
-	ErrNotFound   = apperr.New(apperr.KindNotFound, "users.not_found", "usuário não encontrado")
-	ErrEmailTaken = apperr.New(apperr.KindConflict, "users.email_taken", "e-mail já cadastrado")
-	ErrInvalid    = apperr.New(apperr.KindInvalid, "users.invalid", "dados de usuário inválidos")
+	ErrNotFound = apperr.New(apperr.KindNotFound, "users.not_found", "usuário não encontrado")
+	ErrInvalid  = apperr.New(apperr.KindInvalid, "users.invalid", "dados de usuário inválidos")
 )
 
 type User struct {
-	ID        uuid.UUID
+	ID        string // = "sub" do Keycloak; não assumimos formato (pode vir de federação)
 	Name      string
 	Email     string
 	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
-// NewUser valida e cria um usuário. Acumula todos os erros de campo em vez
-// de parar no primeiro, para o cliente corrigir tudo de uma vez.
-func NewUser(name, email string, now time.Time) (User, error) {
-	name = strings.TrimSpace(name)
-	email = strings.ToLower(strings.TrimSpace(email))
-
-	verr := ErrInvalid
-	if name == "" {
-		verr = verr.WithField("name", "obrigatório")
-	} else if len(name) > 120 {
-		verr = verr.WithField("name", "máximo de 120 caracteres")
+// NewUser cria o perfil a partir dos dados de identidade.
+func NewUser(id, name, email string, now time.Time) (User, error) {
+	if strings.TrimSpace(id) == "" {
+		return User{}, ErrInvalid.WithField("id", "obrigatório")
 	}
-	if _, err := mail.ParseAddress(email); err != nil || !strings.Contains(email, "@") {
-		verr = verr.WithField("email", "e-mail inválido")
-	}
-	if verr.HasFields() {
-		return User{}, verr
-	}
-
-	return User{ID: uuid.New(), Name: name, Email: email, CreatedAt: now.UTC()}, nil
+	now = now.UTC()
+	return User{
+		ID:        id,
+		Name:      strings.TrimSpace(name),
+		Email:     strings.ToLower(strings.TrimSpace(email)),
+		CreatedAt: now,
+		UpdatedAt: now,
+	}, nil
 }
 
-// ParseID converte o ID textual. ID malformado é erro de entrada (400), não 404.
-func ParseID(s string) (uuid.UUID, error) {
-	id, err := uuid.Parse(s)
-	if err != nil {
-		return uuid.Nil, ErrInvalid.WithField("id", "deve ser um UUID").Wrap(err)
+// SyncIdentity atualiza os dados que vêm do provedor de identidade. Devolve
+// true se algo mudou (para o chamador saber se precisa persistir).
+func (u *User) SyncIdentity(name, email string, now time.Time) bool {
+	name, email = strings.TrimSpace(name), strings.ToLower(strings.TrimSpace(email))
+	if u.Name == name && u.Email == email {
+		return false
 	}
-	return id, nil
+	u.Name, u.Email, u.UpdatedAt = name, email, now.UTC()
+	return true
 }

@@ -15,6 +15,8 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/dev-danilocordeiro/go-authkit/oidcauth"
+
 	"github.com/dev-danilocordeiro/go-modular-monolith/internal/bootstrap"
 	"github.com/dev-danilocordeiro/go-modular-monolith/internal/platform/config"
 	"github.com/dev-danilocordeiro/go-modular-monolith/internal/platform/database"
@@ -64,7 +66,21 @@ func run(log *slog.Logger) error {
 		}
 	}
 
-	app := bootstrap.NewApp(log, db, cfg.ProblemTypeBase)
+	verifier, err := oidcauth.New(ctx, oidcauth.Config{
+		IssuerURL:    cfg.OIDC.IssuerURL,
+		DiscoveryURL: cfg.OIDC.DiscoveryURL,
+		Audience:     cfg.OIDC.Audience,
+	})
+	if err != nil {
+		return fmt.Errorf("auth: %w", err)
+	}
+
+	app := bootstrap.NewApp(bootstrap.Deps{
+		Log:             log,
+		DB:              db,
+		Verifier:        verifier,
+		ProblemTypeBase: cfg.ProblemTypeBase,
+	})
 
 	errCh := make(chan error, 1)
 	go func() {

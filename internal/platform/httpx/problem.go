@@ -62,6 +62,15 @@ func ErrorHandler(log *slog.Logger, typeBase string) fiber.ErrorHandler {
 				"method", c.Method(), "path", c.Path(), "status", p.Status, "error", err)
 		}
 
+		if p.Status == http.StatusUnauthorized {
+			// RFC 6750: um 401 de API com Bearer token deve dizer como se autenticar.
+			challenge := `Bearer realm="api"`
+			if p.Code == "auth.invalid_token" {
+				challenge += `, error="invalid_token"`
+			}
+			c.Set(fiber.HeaderWWWAuthenticate, challenge)
+		}
+
 		return c.Status(p.Status).JSON(p, problemContentType)
 	}
 }

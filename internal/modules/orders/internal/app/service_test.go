@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/google/uuid"
+	"github.com/dev-danilocordeiro/go-authkit"
 
 	"github.com/dev-danilocordeiro/go-modular-monolith/internal/modules/orders/internal/app"
 	"github.com/dev-danilocordeiro/go-modular-monolith/internal/modules/orders/internal/domain"
@@ -26,9 +26,11 @@ func (f fakeUsers) GetUser(_ context.Context, id string) (users.User, error) {
 
 func TestPlace(t *testing.T) {
 	infraErr := apperr.Internal(errors.New("connection refused"))
+	alice := authkit.Principal{Subject: "alice", Kind: authkit.KindUser, Roles: []string{app.RoleOrdersWrite}}
 
 	tests := []struct {
 		name      string
+		principal *authkit.Principal
 		users     fakeUsers
 		userID    string
 		total     int64
@@ -36,24 +38,30 @@ func TestPlace(t *testing.T) {
 		wantKind  apperr.Kind
 		alsoMatch error // erro original que deve continuar na cadeia
 	}{
-		{name: "ok", userID: uuid.NewString(), total: 1000},
-		{name: "validação", userID: "nope", total: 0, wantErr: domain.ErrInvalid, wantKind: apperr.KindInvalid},
+		{name: "ok, para si mesma", principal: &alice, total: 1000},
+		{name: "sem principal", total: 1000, wantErr: authkit.ErrUnauthenticated, wantKind: apperr.KindUnauthorized},
+		{name: "para outra pessoa", principal: &alice, userID: "bob", total: 1000, wantErr: authkit.ErrForbidden, wantKind: apperr.KindForbidden},
+		{name: "validação", principal: &alice, total: 0, wantErr: domain.ErrInvalid, wantKind: apperr.KindInvalid},
 		{
-			name: "usuário inexistente é traduzido para 422", users: fakeUsers{err: users.ErrNotFound},
-			userID: uuid.NewString(), total: 1000,
+			name: "usuário inexistente é traduzido para 422", principal: &alice, total: 1000,
+			users:   fakeUsers{err: users.ErrNotFound},
 			wantErr: domain.ErrUnknownUser, wantKind: apperr.KindUnprocessable, alsoMatch: users.ErrNotFound,
 		},
 		{
-			name: "falha de infra é propagada", users: fakeUsers{err: infraErr},
-			userID: uuid.NewString(), total: 1000,
+			name: "falha de infra é propagada", principal: &alice, total: 1000,
+			users:   fakeUsers{err: infraErr},
 			wantErr: infraErr, wantKind: apperr.KindInternal,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
+			if tt.principal != nil {
+				ctx = authkit.WithPrincipal(ctx, *tt.principal)
+			}
 			svc := app.NewService(memory.New(), tt.users)
-			_, err := svc.Place(context.Background(), tt.userID, tt.total)
+			_, err := svc.Place(ctx, tt.userID, tt.total)
 
 			if tt.wantErr == nil {
 				if err != nil {

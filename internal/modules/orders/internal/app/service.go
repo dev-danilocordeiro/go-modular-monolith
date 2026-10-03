@@ -4,9 +4,12 @@ package app
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/dev-danilocordeiro/go-authkit"
 
 	"github.com/dev-danilocordeiro/go-modular-monolith/internal/modules/orders/internal/domain"
 	"github.com/dev-danilocordeiro/go-modular-monolith/internal/modules/users"
@@ -36,12 +39,23 @@ func NewService(repo Repository, u Users) *Service {
 	return &Service{repo: repo, users: u, now: time.Now}
 }
 
+// Place cria um pedido. Para uma pessoa, userID vazio significa "para mim".
 func (s *Service) Place(ctx context.Context, userID string, totalCents int64) (domain.Order, error) {
+	userID = strings.TrimSpace(userID) // normaliza ANTES da política, para ela ver o mesmo valor que será gravado
+	if p, ok := authkit.FromContext(ctx); ok && p.IsUser() && userID == "" {
+		userID = p.Subject
+	}
+	if err := canPlaceFor.Check(ctx, userID); err != nil {
+		return domain.Order{}, err
+	}
+
 	o, err := domain.NewOrder(userID, totalCents, s.now())
 	if err != nil {
 		return domain.Order{}, err
 	}
 
+	// O principal segue no ctx: as políticas de users também se aplicam a
+	// esta chamada interna (ex.: um sistema sem users:read recebe 403).
 	if _, err := s.users.GetUser(ctx, userID); err != nil {
 		// TRADUZIR quando o significado muda: "usuário não encontrado" no
 		// contexto de criar pedido é uma regra de negócio violada (422).
@@ -49,7 +63,7 @@ func (s *Service) Place(ctx context.Context, userID string, totalCents int64) (d
 		if errors.Is(err, users.ErrNotFound) {
 			return domain.Order{}, domain.ErrUnknownUser.Wrap(err)
 		}
-		// PROPAGAR quando o significado não muda (ex.: banco fora -> 500).
+		// PROPAGAR quando o significado não muda (403 de users, banco fora...).
 		return domain.Order{}, err
 	}
 
@@ -59,10 +73,23 @@ func (s *Service) Place(ctx context.Context, userID string, totalCents int64) (d
 	return o, nil
 }
 
+// Get lê um pedido. A política depende do pedido (quem é o dono), então
+// primeiro carregamos e depois autorizamos.
 func (s *Service) Get(ctx context.Context, rawID string) (domain.Order, error) {
+	if _, ok := authkit.FromContext(ctx); !ok {
+		// Sem isso, um anônimo descobriria se um ID existe (404 x 401).
+		return domain.Order{}, authkit.ErrUnauthenticated
+	}
 	id, err := domain.ParseID(rawID)
 	if err != nil {
 		return domain.Order{}, err
 	}
-	return s.repo.GetByID(ctx, id)
+	o, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return domain.Order{}, err
+	}
+	if err := canRead.Check(ctx, o); err != nil {
+		return domain.Order{}, err
+	}
+	return o, nil
 }

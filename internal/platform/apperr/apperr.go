@@ -126,9 +126,22 @@ func Internal(cause error) *Error {
 	return &Error{Kind: KindInternal, Code: "internal", Message: "erro interno", cause: cause}
 }
 
-// As extrai o *Error de qualquer cadeia de erros. Erros que não são *Error
-// (ex.: um panic recuperado, um erro cru do driver) viram Internal. Assim a
-// borda sempre tem um *Error para traduzir.
+// Interfaces comportamentais: erros de OUTROS pacotes (ex.: go-authkit) se
+// classificam implementando estes métodos, sem que apperr precise importá-los.
+// É o mesmo idioma de net.Error.Timeout() na biblioteca padrão.
+type (
+	unauthenticatedError interface{ Unauthenticated() bool }
+	forbiddenError       interface{ Forbidden() bool }
+	codedError           interface {
+		Code() string
+		Message() string
+	}
+)
+
+// As extrai o *Error de qualquer cadeia de erros. Erros que se classificam
+// via interfaces comportamentais são convertidos; o resto (um panic
+// recuperado, um erro cru do driver) vira Internal. Assim a borda sempre tem
+// um *Error para traduzir.
 func As(err error) *Error {
 	if err == nil {
 		return nil
@@ -137,7 +150,26 @@ func As(err error) *Error {
 	if errors.As(err, &ae) {
 		return ae
 	}
+
+	var (
+		unauth unauthenticatedError
+		forbid forbiddenError
+	)
+	switch {
+	case errors.As(err, &unauth) && unauth.Unauthenticated():
+		return fromCoded(err, KindUnauthorized, "auth.unauthenticated", "autenticação necessária")
+	case errors.As(err, &forbid) && forbid.Forbidden():
+		return fromCoded(err, KindForbidden, "auth.forbidden", "acesso negado")
+	}
 	return Internal(err)
+}
+
+func fromCoded(err error, kind Kind, code, message string) *Error {
+	var ce codedError
+	if errors.As(err, &ce) {
+		code, message = ce.Code(), ce.Message()
+	}
+	return New(kind, code, message).Wrap(err)
 }
 
 // KindOf é um atalho para As(err).Kind.

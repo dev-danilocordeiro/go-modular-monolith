@@ -38,3 +38,16 @@ docker-up: ## Postgres + API em containers
 
 docker-down:
 	docker compose --profile app down
+
+# ---- Tokens de desenvolvimento (Keycloak do docker compose) ----
+KC_TOKEN_URL ?= http://localhost:8180/realms/app/protocol/openid-connect/token
+U ?= alice
+
+.PHONY: token token-service
+token: ## access token de pessoa: make token U=alice|bob|admin (senha = usuário)
+	@curl -s $(KC_TOKEN_URL) -d grant_type=password -d client_id=app-web \
+		-d username=$(U) -d password=$(U) | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])'
+
+token-service: ## access token do billing-service (client credentials)
+	@curl -s $(KC_TOKEN_URL) -d grant_type=client_credentials -d client_id=billing-service \
+		-d client_secret=billing-secret | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])'

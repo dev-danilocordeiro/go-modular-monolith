@@ -23,6 +23,7 @@ linters:
         - .WithMessage(
       ignore-package-globs:
         - github.com/dev-danilocordeiro/go-modular-monolith/*
+        - github.com/dev-danilocordeiro/go-authkit/*  # erros já classificados (401/403)
         - github.com/gofiber/fiber/v3   # handlers só devolvem o erro para o ErrorHandler
 formatters:
   enable:

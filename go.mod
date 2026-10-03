@@ -3,6 +3,7 @@ module github.com/dev-danilocordeiro/go-modular-monolith
 go 1.27.0
 
 require (
+	github.com/dev-danilocordeiro/go-authkit v0.1.0
 	github.com/gofiber/fiber/v3 v3.5.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
@@ -11,6 +12,8 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.2.3 // indirect
+	github.com/coreos/go-oidc/v3 v3.21.0 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.5 // indirect
 	github.com/gofiber/schema v1.8.3 // indirect
 	github.com/gofiber/utils/v2 v2.4.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
@@ -28,6 +31,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.55.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect

@@ -1,0 +1,181 @@
+{
+  "realm": "app",
+  "enabled": true,
+  "displayName": "App (dev)",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "accessTokenLifespan": 300,
+  "roles": {
+    "client": {
+      "app-api": [
+        {
+          "name": "admin",
+          "description": "Acesso administrativo"
+        },
+        {
+          "name": "orders:read",
+          "description": "Ler pedidos de qualquer usuário (sistemas)"
+        },
+        {
+          "name": "orders:write",
+          "description": "Criar pedidos"
+        },
+        {
+          "name": "users:read",
+          "description": "Ler perfis de qualquer usuário (sistemas)"
+        }
+      ]
+    }
+  },
+  "clients": [
+    {
+      "clientId": "app-api",
+      "name": "App API (resource server)",
+      "enabled": true,
+      "publicClient": false,
+      "bearerOnly": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false
+    },
+    {
+      "clientId": "app-web",
+      "name": "App Web",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:3000/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-app-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "app-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "billing-service",
+      "name": "Billing Service",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "billing-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "audience-app-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "app-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ],
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "roles",
+        "profile",
+        "basic",
+        "email",
+        "service_account"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "alice",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "alice@example.com",
+      "firstName": "Alice",
+      "lastName": "Silva",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "alice",
+          "temporary": false
+        }
+      ],
+      "clientRoles": {
+        "app-api": [
+          "orders:write"
+        ]
+      }
+    },
+    {
+      "username": "bob",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "bob@example.com",
+      "firstName": "Bob",
+      "lastName": "Souza",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "bob",
+          "temporary": false
+        }
+      ],
+      "clientRoles": {
+        "app-api": [
+          "orders:write"
+        ]
+      }
+    },
+    {
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "admin@example.com",
+      "firstName": "Admin",
+      "lastName": "Root",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ],
+      "clientRoles": {
+        "app-api": [
+          "admin",
+          "orders:write"
+        ]
+      }
+    },
+    {
+      "username": "service-account-billing-service",
+      "enabled": true,
+      "serviceAccountClientId": "billing-service",
+      "clientRoles": {
+        "app-api": [
+          "orders:read",
+          "orders:write",
+          "users:read"
+        ]
+      }
+    }
+  ]
+}

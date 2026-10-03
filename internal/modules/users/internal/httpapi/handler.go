@@ -1,8 +1,8 @@
 // Package httpapi expõe os casos de uso de usuários via REST (Fiber).
 //
-// Repare que nenhum handler escolhe status de erro: eles só fazem `return err`
-// e o httpx.ErrorHandler monta o Problem Details. Handler fino = sem "gateway"
-// engolindo erro e devolvendo 500 genérico.
+// Repare que nenhum handler escolhe status de erro nem checa permissão: eles
+// só fazem `return err`. A autorização está no Service e o
+// httpx.ErrorHandler monta o Problem Details.
 package httpapi
 
 import (
@@ -12,7 +12,6 @@ import (
 
 	"github.com/dev-danilocordeiro/go-modular-monolith/internal/modules/users/internal/app"
 	"github.com/dev-danilocordeiro/go-modular-monolith/internal/modules/users/internal/domain"
-	"github.com/dev-danilocordeiro/go-modular-monolith/internal/platform/httpx"
 )
 
 type Handler struct {
@@ -23,18 +22,13 @@ func New(svc *app.Service) *Handler { return &Handler{svc: svc} }
 
 func (h *Handler) Register(r fiber.Router) {
 	g := r.Group("/users")
-	g.Post("/", h.create)
+	g.Get("/me", h.me) // antes de /:id, senão "me" seria lido como um ID
 	g.Get("/", h.list)
 	g.Get("/:id", h.get)
 }
 
 // Os DTOs HTTP são separados do domínio: mudar o JSON não mexe na regra de
 // negócio, e vice-versa.
-type createUserRequest struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
-}
-
 type userResponse struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
@@ -43,19 +37,15 @@ type userResponse struct {
 }
 
 func toResponse(u domain.User) userResponse {
-	return userResponse{ID: u.ID.String(), Name: u.Name, Email: u.Email, CreatedAt: u.CreatedAt}
+	return userResponse{ID: u.ID, Name: u.Name, Email: u.Email, CreatedAt: u.CreatedAt}
 }
 
-func (h *Handler) create(c fiber.Ctx) error {
-	var req createUserRequest
-	if err := httpx.BindJSON(c, &req); err != nil {
-		return err
-	}
-	u, err := h.svc.Register(c.Context(), req.Name, req.Email)
+func (h *Handler) me(c fiber.Ctx) error {
+	u, err := h.svc.Me(c.Context())
 	if err != nil {
 		return err
 	}
-	return c.Status(fiber.StatusCreated).JSON(toResponse(u))
+	return c.JSON(toResponse(u))
 }
 
 func (h *Handler) get(c fiber.Ctx) error {

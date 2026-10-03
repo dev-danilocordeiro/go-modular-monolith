@@ -24,7 +24,7 @@ func (h *Handler) Register(r fiber.Router) {
 }
 
 type createOrderRequest struct {
-	UserID     string `json:"user_id"`
+	UserID     string `json:"user_id"` // opcional para pessoas: vazio = "para mim"
 	TotalCents int64  `json:"total_cents"`
 }
 
@@ -36,7 +36,7 @@ type orderResponse struct {
 }
 
 func toResponse(o domain.Order) orderResponse {
-	return orderResponse{ID: o.ID.String(), UserID: o.UserID.String(), TotalCents: o.TotalCents, CreatedAt: o.CreatedAt}
+	return orderResponse{ID: o.ID.String(), UserID: o.UserID, TotalCents: o.TotalCents, CreatedAt: o.CreatedAt}
 }
 
 func (h *Handler) create(c fiber.Ctx) error {

@@ -1,12 +1,17 @@
-// Package app contém os casos de uso de usuários. Orquestra domínio e
-// persistência, mas depende só de interfaces ("portas").
+// Package app contém os casos de uso de usuários. Orquestra domínio,
+// autorização e persistência, mas depende só de interfaces ("portas").
+//
+// A autorização é feita AQUI, não no handler HTTP: assim a mesma regra vale
+// quando outro módulo chama users pela API interna.
 package app
 
 import (
 	"context"
+	"errors"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/dev-danilocordeiro/go-authkit"
+	"github.com/dev-danilocordeiro/go-authkit/authz"
 
 	"github.com/dev-danilocordeiro/go-modular-monolith/internal/modules/users/internal/domain"
 )
@@ -15,12 +20,11 @@ import (
 // trocar de banco = escrever outra implementação, sem mexer aqui.
 //
 // Contrato de erros (toda implementação DEVE respeitar):
-//   - Create:  domain.ErrEmailTaken se o e-mail já existe.
 //   - GetByID: domain.ErrNotFound se não existe.
 //   - Falhas de infraestrutura: qualquer outro erro (vira 500 na borda).
 type Repository interface {
-	Create(ctx context.Context, u domain.User) error
-	GetByID(ctx context.Context, id uuid.UUID) (domain.User, error)
+	Save(ctx context.Context, u domain.User) error // insere ou atualiza
+	GetByID(ctx context.Context, id string) (domain.User, error)
 	List(ctx context.Context) ([]domain.User, error)
 }
 
@@ -33,25 +37,52 @@ func NewService(repo Repository) *Service {
 	return &Service{repo: repo, now: time.Now}
 }
 
-func (s *Service) Register(ctx context.Context, name, email string) (domain.User, error) {
-	u, err := domain.NewUser(name, email, s.now())
-	if err != nil {
+// Me devolve o perfil de quem está chamando, criando-o no primeiro acesso
+// (provisionamento "just-in-time") e sincronizando nome/e-mail com o token.
+func (s *Service) Me(ctx context.Context) (domain.User, error) {
+	if err := canAccessSelf.Check(ctx, authz.None{}); err != nil {
 		return domain.User{}, err
 	}
-	if err := s.repo.Create(ctx, u); err != nil {
-		return domain.User{}, err
-	}
-	return u, nil
+	p, _ := authkit.FromContext(ctx) // Check garantiu que existe
+	return s.provision(ctx, p)
 }
 
-func (s *Service) Get(ctx context.Context, rawID string) (domain.User, error) {
-	id, err := domain.ParseID(rawID)
-	if err != nil {
+// Get lê o perfil de um usuário, aplicando a política canRead.
+func (s *Service) Get(ctx context.Context, id string) (domain.User, error) {
+	if err := canRead.Check(ctx, id); err != nil {
 		return domain.User{}, err
 	}
-	return s.repo.GetByID(ctx, id)
+	u, err := s.repo.GetByID(ctx, id)
+	if errors.Is(err, domain.ErrNotFound) {
+		// A própria pessoa ainda não tem perfil: cria agora.
+		if p, _ := authkit.FromContext(ctx); isSelf(p, id) {
+			return s.provision(ctx, p)
+		}
+	}
+	return u, err
 }
 
 func (s *Service) List(ctx context.Context) ([]domain.User, error) {
+	if err := canList.Check(ctx, authz.None{}); err != nil {
+		return nil, err
+	}
 	return s.repo.List(ctx)
+}
+
+func (s *Service) provision(ctx context.Context, p authkit.Principal) (domain.User, error) {
+	u, err := s.repo.GetByID(ctx, p.Subject)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		if u, err = domain.NewUser(p.Subject, p.Name, p.Email, s.now()); err != nil {
+			return domain.User{}, err
+		}
+	case err != nil:
+		return domain.User{}, err
+	case !u.SyncIdentity(p.Name, p.Email, s.now()):
+		return u, nil // nada mudou, nada a salvar
+	}
+	if err := s.repo.Save(ctx, u); err != nil {
+		return domain.User{}, err
+	}
+	return u, nil
 }

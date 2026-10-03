@@ -5,36 +5,28 @@ package memory
 import (
 	"context"
 	"slices"
-	"strings"
 	"sync"
-
-	"github.com/google/uuid"
 
 	"github.com/dev-danilocordeiro/go-modular-monolith/internal/modules/users/internal/domain"
 )
 
 type Repository struct {
 	mu    sync.RWMutex
-	users map[uuid.UUID]domain.User
+	users map[string]domain.User
 }
 
 func New() *Repository {
-	return &Repository{users: make(map[uuid.UUID]domain.User)}
+	return &Repository{users: make(map[string]domain.User)}
 }
 
-func (r *Repository) Create(_ context.Context, u domain.User) error {
+func (r *Repository) Save(_ context.Context, u domain.User) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	for _, existing := range r.users {
-		if strings.EqualFold(existing.Email, u.Email) {
-			return domain.ErrEmailTaken
-		}
-	}
 	r.users[u.ID] = u
 	return nil
 }
 
-func (r *Repository) GetByID(_ context.Context, id uuid.UUID) (domain.User, error) {
+func (r *Repository) GetByID(_ context.Context, id string) (domain.User, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	u, ok := r.users[id]
