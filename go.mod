@@ -3,7 +3,7 @@ module github.com/dev-danilocordeiro/go-modular-monolith
 go 1.27.0
 
 require (
-	github.com/dev-danilocordeiro/go-authkit v0.1.0
+	github.com/dev-danilocordeiro/go-authkit v0.2.0
 	github.com/gofiber/fiber/v3 v3.5.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0

@@ -3,8 +3,8 @@ github.com/andybalholm/brotli v1.2.3/go.mod h1:rzTDkvFWvIrjDXZHkuS16NPggd91W3kUS
 github.com/coreos/go-oidc/v3 v3.21.0 h1:wZo4Q9Pum8dYEj0eMUPrqR+kvuGkeUplbLpNCkBqoWM=
 github.com/coreos/go-oidc/v3 v3.21.0/go.mod h1:DYCf24+ncYi+XkIH97GY1+dqoRlbaSI26KVTCI9SrY4=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/dev-danilocordeiro/go-authkit v0.1.0 h1:MJc3G0SurB1szFbQJut3zXd2z5QE7WwPYoL7dTJCuXU=
-github.com/dev-danilocordeiro/go-authkit v0.1.0/go.mod h1:sINnc9hfvSRQiqOO9/coWmSmwdjMiKB/x0WHzwNm+Qw=
+github.com/dev-danilocordeiro/go-authkit v0.2.0 h1:wmgced15cfR8vuOrzrz7m9H/oysvUnrT8sPICnesj1E=
+github.com/dev-danilocordeiro/go-authkit v0.2.0/go.mod h1:66SLh5P0pEx4SwrYTvnkHpXA5NtetNY60p8txYU5P8A=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
 github.com/dustin/go-humanize v1.0.1/go.mod h1:Mu1zIs6XwVuF/gI1OepvI0qD18qycQx+mFykh5fBlto=
 github.com/fxamacker/cbor/v2 v2.9.2 h1:X4Ksno9+x3cz0TZv69ec1hxP/+tymuR8PXQJyDwfh78=
