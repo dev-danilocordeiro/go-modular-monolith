@@ -7,6 +7,12 @@ linters:
     - noctx
     - revive
   settings:
+    revive:
+      rules:
+        # "todo exportado precisa de comentário" faz sentido para bibliotecas
+        # públicas; num app, gera comentários que só repetem o nome.
+        - name: exported
+          disabled: true
     wrapcheck:
       ignore-sigs:
         - .Errorf(

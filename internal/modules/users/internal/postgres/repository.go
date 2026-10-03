@@ -62,7 +62,7 @@ func (r *Repository) List(ctx context.Context) ([]domain.User, error) {
 	users, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.User, error) {
 		var u domain.User
 		err := row.Scan(&u.ID, &u.Name, &u.Email, &u.CreatedAt)
-		return u, err
+		return u, err //nolint:wrapcheck // embrulhado por apperr.Internal logo abaixo
 	})
 	if err != nil {
 		return nil, apperr.Internal(err)

@@ -24,19 +24,29 @@ func newApp(t *testing.T) *fiber.App {
 	return bootstrap.NewApp(slog.New(slog.NewTextHandler(io.Discard, nil)), nil, "https://errors.example.com/")
 }
 
-func do(t *testing.T, app *fiber.App, method, path, body string) (*http.Response, []byte) {
+// response é o que os testes precisam da resposta, com o body já lido e fechado.
+type response struct {
+	StatusCode int
+	Header     http.Header
+}
+
+func do(t *testing.T, app *fiber.App, method, path, body string) (response, []byte) {
 	t.Helper()
-	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, _ := io.ReadAll(resp.Body)
-	return resp, b
+	defer func() { _ = resp.Body.Close() }()
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return response{StatusCode: resp.StatusCode, Header: resp.Header}, b
 }
 
-func problemOf(t *testing.T, resp *http.Response, body []byte) httpx.Problem {
+func problemOf(t *testing.T, resp response, body []byte) httpx.Problem {
 	t.Helper()
 	if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/problem+json") {
 		t.Fatalf("Content-Type = %q, quer application/problem+json (body: %s)", ct, body)
