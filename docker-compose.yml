@@ -14,5 +14,20 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  # `make up` sobe só o Postgres (para rodar a API com `go run`).
+  # `make docker-up` sobe tudo, com a API em container.
+  api:
+    profiles: [app]
+    build: .
+    environment:
+      HTTP_ADDR: ":8080"
+      DB_DRIVER: postgres
+      DATABASE_URL: postgres://app:app@postgres:5432/app?sslmode=disable
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:

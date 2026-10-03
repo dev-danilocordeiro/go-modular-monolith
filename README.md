@@ -23,6 +23,29 @@ make run-memory  # sem banco nenhum
 make test
 ```
 
+## Docker
+
+```bash
+make docker-build   # build da imagem e mostra o tamanho
+make docker-up      # Postgres + API em containers (http://localhost:8080)
+make docker-down
+```
+
+A imagem final tem **~21 MB** (o CI falha se passar de 40 MB):
+
+| Decisão | Por quê |
+|---|---|
+| Multi-stage build | O toolchain do Go (~300 MB) fica só no estágio de build |
+| `CGO_ENABLED=0` | Binário estático, sem depender de libc na imagem |
+| `-trimpath -ldflags="-s -w"` | Remove a tabela de símbolos e a informação de debug (~30% menor) |
+| `distroless/static:nonroot` | ~6 MB, com CA certs, tzdata e usuário não-root, sem shell (menos superfície de ataque) |
+| `go.mod`/`go.sum` copiados antes do código | A camada de dependências fica em cache entre builds |
+| `--mount=type=cache` | Cache de módulos e de compilação do BuildKit |
+| `/api healthcheck` | Distroless não tem curl: o próprio binário faz o `HEALTHCHECK` |
+
+Para ir abaixo de ~15 MB dá para usar `FROM scratch`, copiando manualmente os
+CA certs e o `/etc/passwd`. Na prática, o ganho de ~6 MB raramente compensa.
+
 ## Estrutura
 
 ```
