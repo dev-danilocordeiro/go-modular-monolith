@@ -1,6 +1,6 @@
 module github.com/dev-danilocordeiro/go-modular-monolith
 
-go 1.27.0
+go 1.27.2
 
 require (
 	github.com/dev-danilocordeiro/go-authkit v0.2.0
